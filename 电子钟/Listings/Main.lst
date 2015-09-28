@@ -1,0 +1,495 @@
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\Main.obj
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE Main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\Main.ls
+                    -t) OBJECT(.\Objects\Main.obj)
+
+line level    source
+
+   1                   /* 2015.09 */
+   2           /* 广东石油化工学院 */
+   3           /* Ryan_yuans  袁柏宁*/
+   4           /* DS1302实时时钟__简易电子钟 */
+   5           
+   6           #include <reg52.h>
+   7          
+   8          #define uchar unsigned char
+   9          #define uint unsigned int
+  10          #define ulong unsigned long
+  11                  
+  12          sbit BUZZ = P1^6;
+  13          
+  14          struct Timer{
+  15                  uint year;
+  16                  uchar mon;
+  17                  uchar day;
+  18                  uchar hour;
+  19                  uchar min;
+  20                  uchar sec;
+  21                  uchar week;
+  22          };
+  23          
+  24          void ConfigTimer0(uint ms);
+  25          extern void Reset1602();
+  26          extern void ResetDS1302();
+  27          extern void ShowStr(uchar x,uchar y,uchar *str);
+  28          extern void GetRealTime(struct Timer *time);
+  29          extern void SetRealTime(struct Timer *time);
+  30          void RefreshTimeShow();
+  31          void ShowBCDByte(uchar x,uchar y,uchar bcd);
+  32          void AlarmMonitor();
+  33          extern void LCDgetTwk();
+  34          extern void LCDstopTwk();
+  35          extern void SetLoc(uchar x,uchar y);
+  36          extern void KeyDriver();
+  37          extern void KeyScan();
+  38          
+  39          
+  40          bit flag200 = 0;
+  41          bit buzzmonitor = 1;
+  42          bit startbuzz = 0;
+  43          struct Timer TimeNow;
+  44          uchar SetIndex = 0;             // 设置_检索
+  45          uchar T0RH = 0;
+  46          uchar T0RL = 0;
+  47          uchar AlarmHour = 0x07;
+  48          uchar AlarmMin = 0x30;          // 当前闹钟时间
+  49          uchar SetAlarmHour;
+  50          uchar SetAlarmMin;              // 设置模式下的闹钟时间缓冲
+  51          
+  52          void main()
+  53          {
+  54   1              uchar rec = 0xAA;
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 2   
+
+  55   1              
+  56   1              EA = 1;
+  57   1              ConfigTimer0(1);
+  58   1              Reset1602();
+  59   1              ResetDS1302();
+  60   1              
+  61   1              ShowStr(0,0,"20  -  -  ");
+  62   1              ShowStr(1,1,"  :  :  ");        // 固定打印显示
+  63   1              ShowStr(12,0,"SET");
+  64   1              ShowStr(11,1,"  :  ");
+  65   1              
+  66   1              while(1)
+  67   1              {
+  68   2                      KeyDriver();
+  69   2                      
+  70   2                      if(flag200 && (SetIndex == 0))          // 200ms + 非 time set 模式
+  71   2                      {
+  72   3                              flag200 = 0;
+  73   3                              
+  74   3                              AlarmMonitor();
+  75   3                                      
+  76   3                              ShowBCDByte(11,1,AlarmHour);
+  77   3                              ShowBCDByte(14,1,AlarmMin);
+  78   3                              
+  79   3                              GetRealTime(&TimeNow);
+  80   3                              if(rec != TimeNow.sec)
+  81   3                              {
+  82   4                                      RefreshTimeShow();
+  83   4                                      rec = TimeNow.sec;
+  84   4                              }
+  85   3                      }
+  86   2              }
+  87   1      }
+  88          
+  89          void AlarmMonitor()             // 闹钟监控
+  90          {
+  91   1              if(buzzmonitor == 1)
+  92   1              {
+  93   2                      if((TimeNow.hour == AlarmHour) && (TimeNow.min == AlarmMin))
+  94   2                      {
+  95   3                              startbuzz = 1;
+  96   3                              buzzmonitor = 0;
+  97   3                      }
+  98   2              }
+  99   1              
+ 100   1      }
+ 101          
+ 102          void ShowBCDByte(uchar x,uchar y,uchar bcd)             // 将一个BCD码显示在屏幕上,(x,y)_屏幕LCD起始坐标
+ 103          {
+ 104   1              uchar str[4];
+ 105   1              
+ 106   1              str[0] = (bcd >> 4) + '0';
+ 107   1              str[1] = (bcd & 0x0F) + '0';
+ 108   1              str[2] = '\0';
+ 109   1              ShowStr(x,y,str);
+ 110   1      }
+ 111          
+ 112          void RefreshTimeShow()          // 刷新日期时间显示
+ 113          {
+ 114   1              ShowBCDByte(2,0,TimeNow.year);
+ 115   1              ShowBCDByte(5,0,TimeNow.mon);
+ 116   1              ShowBCDByte(8,0,TimeNow.day);
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 3   
+
+ 117   1              ShowBCDByte(1,1,TimeNow.hour);
+ 118   1              ShowBCDByte(4,1,TimeNow.min);
+ 119   1              ShowBCDByte(7,1,TimeNow.sec);
+ 120   1      }
+ 121          
+ 122          void RefreshSetTimeShow()               // 刷新日期时间显示
+ 123          {
+ 124   1              ShowBCDByte(2,0,TimeNow.year);
+ 125   1              ShowBCDByte(5,0,TimeNow.mon);
+ 126   1              ShowBCDByte(8,0,TimeNow.day);
+ 127   1              ShowBCDByte(1,1,TimeNow.hour);
+ 128   1              ShowBCDByte(4,1,TimeNow.min);
+ 129   1              ShowBCDByte(7,1,TimeNow.sec);
+ 130   1              ShowBCDByte(11,1,SetAlarmHour);
+ 131   1              ShowBCDByte(14,1,SetAlarmMin);
+ 132   1      }
+ 133          
+ 134          void RefreshSetShow()           // 刷新当前位置光标
+ 135          {
+ 136   1              switch(SetIndex)
+ 137   1              {
+ 138   2                      case 1:
+ 139   2                              SetLoc(2,0); break;
+ 140   2                      case 2:
+ 141   2                              SetLoc(3,0); break;
+ 142   2                      case 3:
+ 143   2                              SetLoc(5,0); break;
+ 144   2                      case 4:
+ 145   2                              SetLoc(6,0); break;
+ 146   2                      case 5:
+ 147   2                              SetLoc(8,0); break;
+ 148   2                      case 6:
+ 149   2                              SetLoc(9,0); break;
+ 150   2                      case 7:
+ 151   2                              SetLoc(1,1); break;
+ 152   2                      case 8:
+ 153   2                              SetLoc(2,1); break;
+ 154   2                      case 9:
+ 155   2                              SetLoc(4,1); break;
+ 156   2                      case 10:
+ 157   2                              SetLoc(5,1); break;
+ 158   2                      case 11:
+ 159   2                              SetLoc(7,1); break;
+ 160   2                      case 12:
+ 161   2                              SetLoc(8,1); break;
+ 162   2                      case 13:
+ 163   2                              SetLoc(11,1); break;
+ 164   2                      case 14:
+ 165   2                              SetLoc(12,1); break;
+ 166   2                      case 15:
+ 167   2                              SetLoc(14,1); break;
+ 168   2                      case 16:
+ 169   2                              SetLoc(15,1); break;
+ 170   2                      default:
+ 171   2                              break;
+ 172   2                      
+ 173   2              }
+ 174   1      }
+ 175          
+ 176          
+ 177          unsigned char IncBCDHigh(uchar dat)     // 递增一个BCD码高位
+ 178          {
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 4   
+
+ 179   1              if((dat & 0xF0) < 0x90)
+ 180   1              {
+ 181   2                      dat += 0x10;
+ 182   2              }
+ 183   1              else
+ 184   1              {
+ 185   2                      dat &= 0x0F;
+ 186   2              }
+ 187   1              
+ 188   1              return dat;
+ 189   1      }
+ 190          
+ 191          unsigned char IncBCDLow(uchar dat)      // 递增 ~ 低位7
+ 192          {
+ 193   1              if((dat & 0x0F) < 0x09)
+ 194   1              {
+ 195   2                      dat += 0x01;
+ 196   2              }
+ 197   1              else
+ 198   1              {
+ 199   2                      dat &= 0xF0;
+ 200   2              }
+ 201   1              
+ 202   1              return dat;
+ 203   1      }
+ 204          
+ 205          unsigned char DecBCDHigh(uchar dat)     // 递减一个BCD码高位
+ 206          {
+ 207   1              if((dat & 0xF0) > 0x00)
+ 208   1              {
+ 209   2                      dat -= 0x10;
+ 210   2              }
+ 211   1              else
+ 212   1              {
+ 213   2                      dat |= 0x90;
+ 214   2              }
+ 215   1              
+ 216   1              return dat;
+ 217   1      }
+ 218          
+ 219          unsigned char DecBCDLow(uchar dat)      // 递减 ~ 低位
+ 220          {
+ 221   1              if((dat & 0x0F) > 0x00)
+ 222   1              {
+ 223   2                      dat -= 0x01;
+ 224   2              }
+ 225   1              else
+ 226   1              {
+ 227   2                      dat |= 0x09;
+ 228   2              }
+ 229   1              
+ 230   1              return dat;
+ 231   1      }
+ 232          
+ 233          void IncTimeSet()       // 递增时间设置位的值
+ 234          {
+ 235   1              switch(SetIndex)
+ 236   1              {
+ 237   2                      case 1:
+ 238   2                              TimeNow.year = IncBCDHigh(TimeNow.year); break;
+ 239   2                      case 2:
+ 240   2                              TimeNow.year = IncBCDLow(TimeNow.year); break;
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 5   
+
+ 241   2                      case 3:
+ 242   2                              TimeNow.mon = IncBCDHigh(TimeNow.mon); break;
+ 243   2                      case 4:
+ 244   2                              TimeNow.mon = IncBCDLow(TimeNow.mon); break;
+ 245   2                      case 5:
+ 246   2                              TimeNow.day = IncBCDHigh(TimeNow.day); break;
+ 247   2                      case 6:
+ 248   2                              TimeNow.day = IncBCDLow(TimeNow.day); break;
+ 249   2                      case 7:
+ 250   2                              TimeNow.hour = IncBCDHigh(TimeNow.hour); break;
+ 251   2                      case 8:
+ 252   2                              TimeNow.hour = IncBCDLow(TimeNow.hour); break;
+ 253   2                      case 9:
+ 254   2                              TimeNow.min = IncBCDHigh(TimeNow.min); break;
+ 255   2                      case 10:
+ 256   2                              TimeNow.min = IncBCDLow(TimeNow.min); break;
+ 257   2                      case 11:
+ 258   2                              TimeNow.sec = IncBCDHigh(TimeNow.sec); break;
+ 259   2                      case 12:
+ 260   2                              TimeNow.sec = IncBCDLow(TimeNow.sec); break;
+ 261   2                      case 13:
+ 262   2                              SetAlarmHour = IncBCDHigh(SetAlarmHour); break;
+ 263   2                      case 14:
+ 264   2                              SetAlarmHour = IncBCDLow(SetAlarmHour); break;
+ 265   2                      case 15:
+ 266   2                              SetAlarmMin = IncBCDHigh(SetAlarmMin); break;
+ 267   2                      case 16:
+ 268   2                              SetAlarmMin = IncBCDLow(SetAlarmMin); break;
+ 269   2                      default: 
+ 270   2                              break;
+ 271   2              }
+ 272   1              RefreshSetTimeShow();
+ 273   1              RefreshSetShow();
+ 274   1      }
+ 275          
+ 276          void DecTimeSet()       // 递减时间设置位的值
+ 277          {
+ 278   1              switch(SetIndex)
+ 279   1              {
+ 280   2                      case 1:
+ 281   2                              TimeNow.year = DecBCDHigh(TimeNow.year); break;
+ 282   2                      case 2:
+ 283   2                              TimeNow.year = DecBCDLow(TimeNow.year); break;
+ 284   2                      case 3:
+ 285   2                              TimeNow.mon = DecBCDHigh(TimeNow.mon); break;
+ 286   2                      case 4:
+ 287   2                              TimeNow.mon = DecBCDLow(TimeNow.mon); break;
+ 288   2                      case 5:
+ 289   2                              TimeNow.day = DecBCDHigh(TimeNow.day); break;
+ 290   2                      case 6:
+ 291   2                              TimeNow.day = DecBCDLow(TimeNow.day); break;
+ 292   2                      case 7:
+ 293   2                              TimeNow.hour = DecBCDHigh(TimeNow.hour); break;
+ 294   2                      case 8:
+ 295   2                              TimeNow.hour = DecBCDLow(TimeNow.hour); break;
+ 296   2                      case 9:
+ 297   2                              TimeNow.min = DecBCDHigh(TimeNow.min); break;
+ 298   2                      case 10:
+ 299   2                              TimeNow.min = DecBCDLow(TimeNow.min); break;
+ 300   2                      case 11:
+ 301   2                              TimeNow.sec = DecBCDHigh(TimeNow.sec); break;
+ 302   2                      case 12:
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 6   
+
+ 303   2                              TimeNow.sec = DecBCDLow(TimeNow.sec); break;
+ 304   2                      case 13:
+ 305   2                              SetAlarmHour = DecBCDHigh(SetAlarmHour); break;
+ 306   2                      case 14:
+ 307   2                              SetAlarmHour = DecBCDLow(SetAlarmHour); break;
+ 308   2                      case 15:
+ 309   2                              SetAlarmMin = DecBCDHigh(SetAlarmMin); break;
+ 310   2                      case 16:
+ 311   2                              SetAlarmMin = DecBCDLow(SetAlarmMin); break;
+ 312   2                      default: 
+ 313   2                              break;
+ 314   2              }
+ 315   1              RefreshSetTimeShow();
+ 316   1              RefreshSetShow();
+ 317   1      }
+ 318          
+ 319          void LeftShiftTimeSet() // 左移时间设置位
+ 320          {
+ 321   1              if(SetIndex != 0)
+ 322   1              {
+ 323   2                      if(SetIndex > 1)
+ 324   2                      {
+ 325   3                              SetIndex--;
+ 326   3                      }
+ 327   2                      else
+ 328   2                      {
+ 329   3                              SetIndex = 16;
+ 330   3                      }
+ 331   2                      RefreshSetShow();
+ 332   2              }
+ 333   1      }
+ 334          
+ 335          void RightShiftTimeSet()        // 右移时间设置位
+ 336          {
+ 337   1              if(SetIndex != 0)
+ 338   1              {
+ 339   2                      if(SetIndex < 16)
+ 340   2                      {
+ 341   3                              SetIndex++;
+ 342   3                      }
+ 343   2                      else
+ 344   2                      {
+ 345   3                              SetIndex = 1;
+ 346   3                      }
+ 347   2                      RefreshSetShow();
+ 348   2              }
+ 349   1      }
+ 350          
+ 351          void EnterTimeSet()             // Enter time set
+ 352          {
+ 353   1              SetIndex = 1;
+ 354   1              SetAlarmHour = AlarmHour;
+ 355   1              SetAlarmMin = AlarmMin;
+ 356   1              RefreshSetShow();       // 即时刷新
+ 357   1              LCDgetTwk();
+ 358   1      }
+ 359          
+ 360          void ExitTimeSet(bit save)              // Exit time set
+ 361          {
+ 362   1              SetIndex = 0;
+ 363   1              AlarmHour = SetAlarmHour;
+ 364   1              AlarmMin = SetAlarmMin;
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 7   
+
+ 365   1              if(save)
+ 366   1              {
+ 367   2                      SetRealTime(&TimeNow);
+ 368   2              }
+ 369   1              LCDstopTwk();
+ 370   1              buzzmonitor = 1;        // 打开闹钟监控
+ 371   1      }
+ 372          
+ 373          void KeyAction(uchar keycode) // 按键动作_函数,keycode为按键键码
+ 374          {
+ 375   1              if((keycode >= 0x30) && (keycode <= 0x39))
+ 376   1              {
+ 377   2                      ;
+ 378   2              }
+ 379   1              else if(keycode == 0x26)        // 向上键
+ 380   1              {
+ 381   2                      IncTimeSet();
+ 382   2              }
+ 383   1              else if(keycode == 0x28)        // 向下键
+ 384   1              {
+ 385   2                      DecTimeSet();
+ 386   2              }
+ 387   1              else if(keycode == 0x25)        // 向左键
+ 388   1              {
+ 389   2                      LeftShiftTimeSet();
+ 390   2              }
+ 391   1              else if(keycode == 0x27)        // 向右键
+ 392   1              {
+ 393   2                      RightShiftTimeSet();
+ 394   2              }
+ 395   1              else if(keycode == 0x0D)        // 回车键
+ 396   1              {
+ 397   2                      if(SetIndex == 0)
+ 398   2                      {
+ 399   3                              EnterTimeSet();
+ 400   3                      }
+ 401   2                      else
+ 402   2                      {
+ 403   3                              ExitTimeSet(1);
+ 404   3                      }
+ 405   2              }
+ 406   1              else if(keycode == 0x1B)        // Ese键
+ 407   1              {
+ 408   2                      ExitTimeSet(0);
+ 409   2              }
+ 410   1      }
+ 411          
+ 412          void ConfigTimer0(uint ms)
+ 413          {
+ 414   1              ulong tmp;
+ 415   1              
+ 416   1              tmp = 11059200 / 12;
+ 417   1              tmp = (tmp * ms) / 1000;
+ 418   1              tmp = 65536 - tmp;
+ 419   1              tmp = tmp + 12;         // 补偿中断响应延时时造成的误差
+ 420   1              T0RH = (uchar)(tmp >> 8);
+ 421   1              T0RL = (uchar)tmp;
+ 422   1              TMOD &= 0XF0;
+ 423   1              TMOD |= 0X01;
+ 424   1              TH0 = T0RH;
+ 425   1              TL0 = T0RL;
+ 426   1              ET0 = 1;
+C51 COMPILER V9.54   MAIN                                                                  09/12/2015 15:39:32 PAGE 8   
+
+ 427   1              TR0 = 1;
+ 428   1      }
+ 429          
+ 430          void Timer0() interrupt 1
+ 431          {
+ 432   1              static uchar tmp200ms = 0;
+ 433   1              static uint tmp5000ms = 0;
+ 434   1              
+ 435   1              TH0 = T0RH;
+ 436   1              TL0 = T0RL;
+ 437   1              KeyScan();
+ 438   1              tmp200ms++;
+ 439   1              
+ 440   1              if(startbuzz == 1)
+ 441   1              {
+ 442   2                      BUZZ = ~BUZZ;
+ 443   2                      tmp5000ms++;
+ 444   2                      
+ 445   2                      if(tmp5000ms == 5000)
+ 446   2                      {
+ 447   3                              tmp5000ms = 0;
+ 448   3                              startbuzz = 0;
+ 449   3                      }
+ 450   2              }
+ 451   1              
+ 452   1              if(tmp200ms >= 200)
+ 453   1              {
+ 454   2                      tmp200ms = 0;
+ 455   2                      flag200 = 1;
+ 456   2              }
+ 457   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1353    ----
+   CONSTANT SIZE    =     30    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     18      10
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,6 @@
+".\Objects\KeyBoard.obj",
+".\Objects\LCD1602.obj",
+".\Objects\Main.obj",
+".\Objects\DS1302.obj" 
+TO ".\Objects\elc_Clock" 
+PRINT(".\Listings\elc_Clock.m51") RAMSIZE(256) 

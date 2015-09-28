@@ -1,0 +1,152 @@
+C51 COMPILER V9.54   LCD1602                                                               09/05/2015 16:59:51 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE LCD1602
+OBJECT MODULE PLACED IN .\Objects\LCD1602.obj
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE LCD1602.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\LCD1
+                    -602.lst) OBJECT(.\Objects\LCD1602.obj)
+
+line level    source
+
+   1           /* 
+   2           *****************************************
+   3                                  1602 液晶驱动模块
+   4           *****************************************
+   5           */
+   6          
+   7          #include<reg52.h>
+   8          
+   9          #define LCD_DB P0
+  10          
+  11          #define uchar unsigned char
+  12          #define uint unsigned int
+  13          #define ulong unsigned long
+  14                  
+  15          sbit LCD_RS = P1^0;
+  16          sbit LCD_RW = P1^1;
+  17          sbit LCD_E = P1^5;
+  18          
+  19          void Reset1602()                // 重新配置LCD1602 向LCD1602写入命令
+  20          {
+  21   1              void WriteCmd(uchar cmd);
+  22   1              
+  23   1              WriteCmd(0X38);
+  24   1              WriteCmd(0X0C);
+  25   1              WriteCmd(0X06);
+  26   1              WriteCmd(0X01);
+  27   1      }
+  28          
+  29          void WriteCmd(uchar cmd)                // 写入命令 配置 ———— 底层
+  30          {
+  31   1              void WaitReady();
+  32   1              
+  33   1              WaitReady();
+  34   1              LCD_RS = 0;
+  35   1              LCD_RW = 0;
+  36   1              LCD_DB = cmd;
+  37   1              LCD_E = 1;
+  38   1              LCD_E = 0;
+  39   1      
+  40   1      }
+  41          
+  42          void WaitReady()                //      判断“忙”，并决策 “等待” 或 “执行”    change something.            
+  43          {
+  44   1              uchar str;
+  45   1              
+  46   1              LCD_DB = 0XFF;
+  47   1              LCD_RS = 0;
+  48   1              LCD_RW = 1;
+  49   1              
+  50   1              do
+  51   1              {
+  52   2                      LCD_E = 1;
+  53   2                      str = LCD_DB;
+  54   2                      LCD_E = 0;
+C51 COMPILER V9.54   LCD1602                                                               09/05/2015 16:59:51 PAGE 2   
+
+  55   2              }while(str & 0x80);
+  56   1              
+  57   1      }
+  58          
+  59          void ShowStr(uchar x,uchar y,uchar *str)                // 传地址 + 传数据
+  60          {
+  61   1              void SetLoc(uchar x,uchar y);
+  62   1              void WriteData(uchar dat);
+  63   1              
+  64   1              SetLoc(x,y);
+  65   1              
+  66   1              while(*str != '\0')
+  67   1              {
+  68   2                              WriteData(*str++);
+  69   2              }
+  70   1      }
+  71          
+  72          void SetLoc(uchar x,uchar y)            // 写入的【数据】地址 配置 ———— 底层
+  73          {
+  74   1              uchar addr;
+  75   1              
+  76   1              if(y == 0)
+  77   1              {
+  78   2                              addr = 0x80 + 0x00 + x;
+  79   2              }
+  80   1              else
+  81   1              {
+  82   2                              addr = 0x80 + 0x40 + x;
+  83   2              }
+  84   1              WriteCmd(addr);
+  85   1      }
+  86          
+  87          void WriteData(uchar dat)               // 向 LCD1602 上写入数据 配置 ———— 底层
+  88          {
+  89   1              
+  90   1              WaitReady();
+  91   1              
+  92   1              LCD_RS = 1;
+  93   1              LCD_RW = 0;
+  94   1              LCD_DB = dat;
+  95   1              LCD_E = 1;
+  96   1              LCD_E = 0;
+  97   1      }
+  98          
+  99          void LCDgetTwk()        // 打开闪烁
+ 100          {
+ 101   1              WriteCmd(0x0F);
+ 102   1      }
+ 103          
+ 104          void LCDstopTwk()       // 关闭闪速
+ 105          {
+ 106   1              WriteCmd(0x0C);
+ 107   1      }
+ 108                  
+ 109          /*
+ 110          void ClearAll()
+ 111          {
+ 112                  WriteCmd(0X01);
+ 113          }
+ 114          
+ 115          void ClearArea(uchar x,uchar y,uchar len)               // 指定位置清屏 Area
+ 116          {
+C51 COMPILER V9.54   LCD1602                                                               09/05/2015 16:59:51 PAGE 3   
+
+ 117                  SetLoc(x,y);
+ 118                  
+ 119                  while(len--)
+ 120                  {
+ 121                                  WriteData(' ');
+ 122                  }
+ 123          }
+ 124          */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    141    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
